@@ -1,0 +1,43 @@
+# Monte-Carlo simulation illustrating several correction methods.
+# (Bonferroni, Adjusted p-Value & q-value).
+# Originally from coursework of HarvardX: PH525.3x Statistical Inference and Modeling for High-throughput Experiments
+
+library(devtools)
+library(rafalib)
+library(genefilter)
+library(qvalue)
+
+#Initialize parameters: matrix of n*m, 
+#indicating m replica of dataset with size n,
+#the 1st and 2nd half of n are compared.
+n <- 24
+m <- 8793
+
+#Make 1:500 rows as "Positive" dataset, where first half
+#and second half of n data have a difference vector of delta.
+positives <- 500
+delta <- 2
+g<-factor(c(rep(0,n/2),rep(1,n/2)))
+
+# m0 & m1 stand for numbers of neg/pos tests.
+m0 <- m - positives
+m1 <- positives
+
+# Replicate the entire experiment 1000 times.
+B<-1000
+
+set.seed(1)
+vals<-replicate(B,{
+  mat <- matrix(rnorm(n*m),m,n)   # Simulate random data matrix; .
+  mat[1:positives,1:(n/2)] <- mat[1:positives,1:(n/2)]+delta  # Make positive of 1:500; these are 'true positives'.
+  pvals<-rowttests(mat,g)$p.value   # Calculate p-values for the 2 groups (g) for each row.
+  BCFP<-sum(pvals[-(1:positives)]<0.05/m)   # Bonferroni Correction - False Positives. for listed data in R, [-n] means data of all indices but n.
+  BCFN<-sum(pvals[1:positives]>=0.05/m)     # Bonferroni Correction - False Negatives
+  PA<-p.adjust(pvals,method='fdr')          # Adjusted p-values - note these q-values are ordered - values are calculated based on the entire data, not a part.
+  PAFN<-sum(PA[1:positives]>0.05)           # Adjusted p-values - False Positives
+  PAFP<-sum(PA[-(1:positives)]<=0.05)       # Adjusted p-values - False Negatives
+  QV<-qvalue(pvals)$qvalue                  # Q-values - using qvalue() function
+  QVFP<-sum(QV[-(1:positives)]<=0.05)       # Q-values - False Positives
+  QVFN<-sum(QV[1:positives]>0.05)           # Q-values - False Negatives
+  c(BCFP,BCFN,PAFP,PAFN,QVFP,QVFN)          # Return list of all values.
+})
