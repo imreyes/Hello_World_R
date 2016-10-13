@@ -1,0 +1,53 @@
+# Related to Edx coursework at https://courses.edx.org/courses/course-v1:HarvardX+PH525.3x+2T2016/courseware/
+# Basic instance referencing Type I & II errors, and Frequentist & Bayesian statistics.
+
+library(rafalib)
+library(Biobase)
+library(genefilter)
+setwd("G:/R/Project1")
+load('rma95.rda')
+y<-exprs(rma95)             # exprs() retrieve the rda dataframe into matrix - may use more often.
+g<-factor(rep(0:1,each=3))  # 6 tests in y, where latter 3 are 'group II'.
+
+# Not very sure about pData(); here it retrieves the 'true positives' of the exps.
+# a %in% b gives logical list with same length of a, values of 'a[i] in b'.
+# pData(rma95) is 'transposed' to y.
+spike<-rownames(y) %in% colnames(pData(rma95))  # 'Pos or Neg' list of y - the actual answersheet.
+rtt<-rowttests(y,g)
+index<-rtt$p.value<0.01      # 'Calls or No-Calls' list of y, via rowttests() & with 0.01 cutoff of p-values.
+
+# Now create sublists of True Pos (TP), True Neg (TN), False Pos (FP), False Neg (FN).
+TP<-y[which(spike&index),]
+TN<-y[which((!spike)&(!index)),]
+FP<-y[which((!spike)&index),]
+FN<-y[which(spike&(!index)),]
+
+# Calculate the standard deviations of experiments in each group.
+sdTP<-vector(mode = 'numeric',length = length(TP)/6)
+sdTN<-vector(mode = 'numeric',length = length(TN)/6)
+sdFP<-vector(mode = 'numeric',length = length(FP)/6)
+sdFN<-vector(mode = 'numeric',length = length(FN)/6)
+for(i in 1:length(TP)/6){sdTP[i]<-sd(TP[i,1:3])}
+for(i in 1:length(TN)/6){sdTN[i]<-sd(TN[i,1:3])}
+for(i in 1:length(FP)/6){sdFP[i]<-sd(FP[i,1:3])}
+for(i in 1:length(FN)/6){sdFN[i]<-sd(FN[i,1:3])}
+boxplot(sdTP,sdTN,sdFP,sdFN,labels=c('TP','TN','FP','FN'))
+
+# An easier way to do the samething: incorporate rowSds(), factor() and split().
+sds <- rowSds(y[,g==0])     # 'g==0' is the same of '1:3'.
+# paste0() puts together numeric values - '1' for true and '0' for false from spike & index above.
+# Hence TP==11, TN==00, FP==01, FN==00.
+index <- paste0( as.numeric(spike), as.numeric(rtt$p.value<0.01))
+# Further making the 4 values (as string) into 4 levels, with labeling.
+index <- factor(index,levels=c("11","01","00","10"),labels=c("TP","FP","TN","FN"))
+# Split the standard deviations based on the level list of same order.
+boxplot(split(sds,index))
+
+
+# Below applies Bayesian statistics to determine SD of samples. Need to understand math behind.
+library(limma)
+fit <- lmFit(y, design=model.matrix(~ g))
+colnames(coef(fit))
+fit <- eBayes(fit)
+sampleSD = fit$sigma
+posteriorSD = sqrt(fit$s2.post)
