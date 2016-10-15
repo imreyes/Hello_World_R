@@ -1,2 +1,2 @@
-# Hello_World_R
-This repository stores some basic R scripts, mostly about basic statistical concepts.
+# Statistics_R
+This repository stores R scripts associated with statistical operations.
