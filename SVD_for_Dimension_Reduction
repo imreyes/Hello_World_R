@@ -1,0 +1,84 @@
+# Source: https://courses.edx.org/courses/course-v1:HarvardX+PH525.4x+2T2016/courseware/
+# Dimension reduction using SVD method.
+# The general idea (taking 2-D as example) is to find two correlated vectors (samples),
+# and get rid of one of those (graphically by rotating the linear distribution along x axis).
+# In multi-dimensional cases, one can easily find out some of the dimensions are dependent
+# on a combination of others, and ignore them in data processing in order to enhance efficiency.
+
+
+
+library(rafalib)
+library(MASS)
+# Start Monte-Carlo Simulation for SVD analysis.
+set.seed(1)
+n<-100
+y<-t(mvrnorm(n,c(0,0),matrix(c(1,0.95,0.95,1),2,2)))  # Don't know how the covariance matrix is defined.
+LIM<-c(-3.5,3.5)
+plot(y[1,],y[2,],xlim = LIM,ylim = LIM)
+s<-svd(y)
+PC1<-s$d[1]*s$v[,1]
+PC2<-s$d[2]*s$v[,2]
+plot(PC1,PC2,xlim = LIM,ylim = LIM)
+# The d times v replicates the matrix in space, but rotated.
+# In other words, as two axes are actually two vectors (samples),
+# The operation 'emphasize' on one of the vector, as the two are very correlated.
+# And the 2nd vector could be rejected, in order to reduce the dimention.
+
+
+# Let's retake one Monte-Carlo SImulation of an example.
+m<-100  # of rows.
+n<-2    # of cols.
+# Simulate a 2 row of dataset from identical column vectors x, and apply minimal random variation e.
+x<-rnorm(m)
+e<-rnorm(n*m,0,0.01)
+Y<-cbind(x,x)       # Y is the dataset here.
+# Now get the U-D-V of the SVD process.
+D<-diag(svd(Y)$d)   # Note: d is a vector of n values; need to make it diagonal matrix for calculation.
+U<-svd(Y)$u
+V<-svd(Y)$v
+# Then plot out how matrix is operated.
+mypar(2,2)
+LIM<-c(-4,4)
+plot(Y[,1],Y[,2])
+plot(U[,1],U[,2])
+# The U plot generates a '1-D' plot now, stressing variance on the U[,1] column.
+UD<-U%*%D           
+plot(UD[,1],UD[,2],xlim = LIM,ylim = LIM)
+# Now giving different power of the two component to differentiate them.
+# The data distribution is the same as original, but rotated.
+# In the 'reversed' sense (comparing to Y), UD put more emphasis on one of the samples, not both.
+# As the two vectors (samples) are too correlated rather than independent, one is enough to represent the system.
+# This is described by values in D - the singular values of the vectors.
+#?Have not related these values to any statistical parameter of each sample; maybe variance?
+
+UDV<-UD%*%t(V)
+plot(UDV[,1],UDV[,2])
+# This is the original Y; making hist(Y-UDV) will see it.
+
+
+# Now look at real data.
+load('tissuesGeneExpression.rda')
+# Choose only 500 features from dataset 'e' for demo.
+set.seed(1)
+ind<-sample(nrow(e),500)
+Y<-t(apply(e[ind,],1,scale))
+s<-svd(Y)
+U<-s$u
+V<-s$v
+D<-diag(s$d)
+Yhat<-U%*%D%*%t(V)
+plot(s$d)         
+# Note the last couple values are almost 0 - they're not 'explaining the variability of matrix'.
+# So get rid of those values - let's remove 4 for now.
+k<-ncol(U)-4      
+Yhat<-U[,1:k]%*%D[1:k,1:k]%*%t(V[,1:k])     # Re-construct the matrix Y.
+plot(s$d^2/sum(s$d^2)*100)
+# Note here, that the last half of singular values shows
+# the corresponding columns 'don't explaining the variances'.
+# So get rid of those values - let's remove 95.
+k<-ncol(U)-95  
+Yhat<-U[,1:k]%*%D[1:k,1:k]%*%t(V[,1:k])     # Note the Yhat is still 500*189, kept by nrow(U) & ncol(t(V)).
+# Using hist(Y-Yhat) allows us to see much higher differences between Y and Yhat.
+# since we've kicked out half of the data, which are not completely dependent.
+# But the overall results are still reasonable.
+
