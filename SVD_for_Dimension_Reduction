@@ -82,3 +82,9 @@ Yhat<-U[,1:k]%*%D[1:k,1:k]%*%t(V[,1:k])     # Note the Yhat is still 500*189, ke
 # since we've kicked out half of the data, which are not completely dependent.
 # But the overall results are still reasonable.
 
+
+
+# Comment: The dataset (also U & V) is a matrix collection of 189 vectors (representing human instances),
+# each of which has 22215 dimensions (gene features). The diagonal matrix D (s$d is simply a list of weights
+# corresponding to each vector - contribution to the entire variation of the matrix) serves to apply the weights
+# to their corresponding vectors (columns).
