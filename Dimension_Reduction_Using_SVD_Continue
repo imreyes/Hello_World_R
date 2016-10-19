@@ -1,0 +1,57 @@
+# Continuation of Dimension reduction using SVD method.
+# Source: https://courses.edx.org/courses/course-v1:HarvardX+PH525.4x+2T2016/courseware/
+
+library(rafalib)
+library(MASS)
+setwd('G:/R/Project1/')
+load('tissuesGeneExpression.rda')
+
+# When flipping the signs of several columns (vectors / samples), SVD still works.
+# The UDt(V) solution is not 
+s<-svd(e)
+signflips<-sample(c(-1,1),ncol(e),replace=TRUE)
+newU<-sweep(s$u,2,signflips,FUN='*')            # Apply FUN ('*') to each column (2, 1 for rows) of matrix and corresponding section of vector.
+newV<-sweep(s$v,2,signflips,FUN='*')
+all.equal(s$u%*%diag(s$d)%*%t(s$v),newU%*%diag(s$d)%*%newV)     # Test if and how two matrices are equal.
+
+# Now compare means of each row (feature / dimension), to column 1 of U.
+m<-rowMeans(e)
+plot(m,s$u[,1])
+plot(m,s$u[,2])           # Note the 2nd column of U is not very correlated to m.
+newmeans = rnorm(nrow(e)) # Add a random value to each row (or add a random vector to each column vector).
+newe = e+newmeans
+sqrt(crossprod(e[,3]-e[,45]))         # Note the distance between any two columns is not changed.
+sqrt(crossprod(newe[,3]-newe[,45])) 
+
+# Now set the means to 0; the distances between any two columns are not changed as well.
+y = e - rowMeans(e)
+s = svd(y)
+resid = y - s$u %*% diag(s$d) %*% t(s$v)
+
+# Take a look at the DV - weight times rotation.
+# Note D is a diagonal matrix, while s$d is a list (D=diag(s$d)).
+z = s$d * t(s$v)
+
+# Now the distances are very close:
+sqrt(crossprod(e[,3]-e[,45]))   # Original
+sqrt(crossprod(y[,3]-y[,45]))   # Mean-to-zero
+sqrt(crossprod(z[,3]-z[,45]))   # Dt(V) matrix - only 187 dimensions, not 22215.
+
+# Then look at the differences in distances calculated from original (e) and DV(z).
+ks = 1:189
+realdistance = sqrt(crossprod(e[,3]-e[,45]))      # Real distances from dataset.
+approxdistances = sapply(ks,function(k){          # Distances from DV matrix.
+  sqrt(crossprod(z[1:k,3,drop=FALSE]-z[1:k,45,drop=FALSE] )) 
+})
+percentdiff = 100*abs(approxdistances - realdistance)/realdistance
+plot(ks,percentdiff)                              # See the differences drop down quickly with k= 1 to 10, than much slower.
+
+# Lastly, compare distances between column 3 and all other columns,
+# then compare differences in distances between e and z.
+distances = sqrt(apply(e[,-3]-e[,3],2,crossprod))
+appdist<-sqrt(apply(z[1:2,-3]-z[1:2,3],2,crossprod))
+
+
+
+# The entire experiment shows the fact that distances between vectors (columns / samples) in a data matrix can be approximated
+# by the DV matrix. The more rows (dimensions / features) of DV vectors are used, the better the approximation is.
