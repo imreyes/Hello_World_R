@@ -1,0 +1,81 @@
+# Continuation of Dimension reduction using SVD method.
+# Source: https://courses.edx.org/courses/course-v1:HarvardX+PH525.4x+2T2016/courseware/
+
+library(rafalib)
+library(MASS)
+setwd('G:/R/Project1/')
+load('tissuesGeneExpression.rda')
+
+# We'll select 3 tissue samples from the block.
+colind<-tissue%in%c('kidney','colon','liver')
+mat<-e[,colind]
+factis<-factor(tissue[colind])
+
+# while we want to compare distances between tissues,
+# we don't want to compare 2 pts with 22215 dimensions.
+# Hence we'll use SVD to get the major column, then compare.
+s<-svd(mat-rowMeans(mat))           # Getting rid of the contribution of row means to the variability.
+z<-s$d[1:2]*t(s$v[,1:2])            # Now look at only two dimensions (features) - as a close approximation.
+plot(t(z))                          # Plot with columns.
+
+# Let's plot in a formal and better way.
+plot(z[1,],z[2,],bg=as.numeric(factis),pch=21,xlab='1st Dim',ylab='2nd Dim')
+legend('bottomright',levels(factis),col=seq(along=levels(factis)),pch=15)
+
+# And now look at the 3rd and 4th columns.
+z<-s$d[3:4]*t(s$v[,3:4])
+plot(z[1,],z[2,],bg=as.numeric(factis),pch=21,xlab='1st Dim',ylab='2nd Dim')
+legend('bottomright',levels(factis),col=seq(along=levels(factis)),pch=15)
+
+# Above can also be done with cmdscale() function,
+# setting k=2 as default which gives columns 1 & 2.
+d<-dist(t(mat))
+mds<-cmdscale(d)
+mypar(1,1)
+plot(mds[,1],mds[,2],bg=as.numeric(factis),pch=21,xlab='1st Dim',ylab='2nd Dim')
+legend('bottomleft',levels(factis),col=seq(along=levels(factis)),pch=15)
+
+
+
+# Now take a comprehensive look and comparison. Scope is reset to all.
+s<-svd(e-rowMeans(e))
+z<-s$d*t(s$v)                 # Generate the full Z-matrix.
+plot(z[1,],z[2,],col=as.numeric(factis),pch=21,xlab='1st Dim',ylab='2nd Dim')
+legend('bottomright',levels(factis),col=seq_along(factis),pch=15)
+d<-dist(t(e))                 # Distance between samples.
+mds<-cmdscale(d)              # cmdscale() based on distance values.
+cor(z[1,],mds[,1])            # Perfectly linear related (-1).
+cor(z[2,],mds[,2])            # Also perfect (-1).
+factis<-factor(tissue)
+mypar(1,2)
+plot(z[1,],z[2,],col=as.numeric(factis))
+legend('topleft',levels(factis),col=seq_along(factis),pch=1,cex=0.5)
+plot(mds[,1],mds[,2],col=as.numeric(factis))
+
+
+
+
+# Now deal with another gene dataset.
+load('GSE5859Subset.rda')
+s<-svd(geneExpression-rowMeans(geneExpression))
+z<-s$d*t(s$v)
+# Take a look at the correlation
+# between dimensions of Z-matrix and group.
+correlation<-apply(z,1,cor,y=sampleInfo$group)
+which.max(correlation)
+# Easier way to look at max:
+which.max(cor(sampleInfo$group,t(z)))    # cor() can perform on list.
+# Look at position of the 2nd max:
+which.max(cor(sampleInfo$group,t(z))[-which.max(cor(sampleInfo$group,t(z)))])+1     # Add up the precluded max.
+
+# Let's look a bit further:
+# Extract the month from sampleInfo$date
+month<-format(sampleInfo$date,'%m')
+month<-factor(month)
+which.max(cor(as.numeric(month),t(z)))
+
+# Finally, take a look at the U-matrix stratified by chromosome.
+chrf<-factor(geneAnnotation$CHR)
+stra<-split(s$u[,6],chrf)
+stra<-stra[-which(names(stra)=='chrUn')]
+boxplot(stra,range=0)  # Range=x determines whiskers cover no further than x times interquartile from box. 0 gets to extreme.
