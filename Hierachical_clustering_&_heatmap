@@ -1,0 +1,105 @@
+# https://courses.edx.org/courses/course-v1:HarvardX+PH525.4x+2T2016/courseware/
+# Hiearachichal clustering
+library(rafalib)
+library(genefilter)
+setwd('G:/R/Project1/')
+# First run an arbituary sample.
+m<-10000
+n<-24
+x<-matrix(rnorm(m*n),m,n)
+colnames(x)=1:n
+d<-dist(t(x))
+hc<-hclust(d)
+plot(hc,label=colnames(x))      # Note: distances are marked by height of the highest spanning between two leaves.
+
+# Then run a Monte-Carlo simulation as illustration.
+MCS<-replicate(100,{
+  m<-10000
+  n<-24
+  x<-matrix(rnorm(m*n),m,n)
+  cl<-cutree(hclust(dist(t(x))),h=143)
+  dim(table(cl))
+  # Equal way to write the same code:
+  # length(unique(cl))
+})
+# MCS are numbers of clusters in each simulation.
+# Note the numbers are random variables.
+
+# Still performing analysis on the tissuesGeneExpression data.
+load('tissuesGeneExpression.rda')
+d<-dist(t(e))                   # Note we play with columns (samples / vectors)
+hc<-hclust(d)                   # Data type of hc is 'hclust'.
+plot(hc)                        # We could plot the cluster dendrogram; this is just ugly.
+plot(hc,cex=0.5,label=tissue)   # Decrease font size, add tissue labels.
+# Rafalib package offers color-coding for dendrogram:
+myplclust(hc,cex=0.5,labels = tissue,lab.col=as.fumeric(tissue))
+# Caution: hiearachical clustering only groups things but not give clusters.
+# We need to cut the tree from some height to form clusters.
+abline(h=120)                   # Note the line cuts the tree into 14 branches, or clusters.
+cl<-cutree(hc,h=120)
+table(true=tissue,cluster=cl)   # Many tissues are well clustered.
+
+# Let's make a heat map.
+rv<-rowVars(e)                  #
+idx<-order(-rv)[1:40]           # select 40 rows with highest row variances (decending order of -rv equals ascending order of rv, which is normal)
+heatmap(e[idx,])                # Heatmap of these 40 rows.
+# Pick different colors.
+library(RColorBrewer)
+hmcol<-colorRampPalette(brewer.pal(9,'GnBu'))(100)
+heatmap(e[idx,],col=hmcol)
+# Further improve the heatmap.
+library(gplots)
+cols<-palette(brewer.pal(7,'Dark2'))[as.fumeric(tissue)]
+cbind(colnames(e),tissue,cols)
+heatmap.2(e[idx,],labCol=tissue,trace='none',ColSideColors=cols,col=hmcol)
+
+
+
+# ===============================================================================================
+# Below are analytic trials of K-means clustering.
+load('tissuesGeneExpression.rda')
+cs<-length(unique(tissue)) # Find how many clusters we wish to generate.
+km<-kmeans(t(e),centers=cs)                # Note once again: most functions applies to ROWs - We want COLUMNs!
+table(tissue,clusters=km$cluster)
+mds<-cmdscale(d)                           # Now plot the clusters - we need multi-dimensional scaling.
+plot(mds[,1],mds[,2],col=km$cluster)
+
+# Now look at a blood RNA sample.
+load('GSE5859Subset.rda')
+set.seed(10)
+km<-kmeans(t(geneExpression),centers=5)
+#
+mds<-cmdscale(dist(t(geneExpression)))
+plot(mds,bg=km$cluster,pch=21)
+table(sampleInfo$group,clusters=km$cluster)                       # Group doesn't drive clusters.
+table(factor(format(sampleInfo$date,'%d')),clusters=km$cluster)   # Date does.
+
+# Make a heatmap.
+library(gplots)
+library(matrixStats)
+rmad<-rowMads(geneExpression)
+idx<-order(-rmad)[1:25]
+# Select color scheme for 25 entries (rows) - 'GnBu' seems not have that many colors.
+sgcol<-colorRampPalette(brewer.pal(11,'RdBu'))(25)
+# This is column color for group (0,1) - Coloring archives might be studied.
+grpcol<-brewer.pal(3,'Dark2')       # 1/2 steps: Initialize color pool.
+grpcol<-grpcol[sampleInfo$group+1]  # 2/2 steps: Create list of color scheme corresponding to group. Note: group is list not factor.
+chrs<-geneAnnotation$CHR[idx]       # Column index - chromosome.
+dt<-gsub('2005-','',sampleInfo$date)# Row Index - date. Note: delete meaningless '2005-' by replacing it with '' using gsub().
+# Plot the heatmap with selected data.
+heatmap.2(geneExpression[idx,],trace='none',scale='row',labCol=dt,labRow=chrs,ColSideColors=grpcol,key=FALSE)
+
+# Make another heatmap with random simulation.
+set.seed(17)
+m = nrow(geneExpression)
+n = ncol(geneExpression)
+x = matrix(rnorm(m*n),m,n)
+g = factor(sampleInfo$g )
+mypar(1,2)
+# 1st heatmap contains 50 gene simulations with smallest p-value.
+idx1<-order(rowttests(x)$p.value)[1:50]
+gcol<-brewer.pal(3,'Dark2')[g]
+heatmap.2(x[idx1,],trace='none',scale='column',ColSideColors = gcol)
+# 2nd heatmap contains 50 gene simulations with largest sd.
+idx2<-order(rowSds(x),decreasing=TRUE)[1:50]
+heatmap.2(x[idx2,],trace='none',scale='column',labCol=g)
