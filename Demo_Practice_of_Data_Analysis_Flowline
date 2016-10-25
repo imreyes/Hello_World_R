@@ -1,0 +1,65 @@
+# Example data analysis practice; codes followed from the below link.
+# Info of sources and processing reached from below url, at 3:17pm, Tue, 10/25/2016.
+#https://www.coursera.org/learn/reproducible-research/lecture/UOGSD/
+
+# General question: How can we figure out non-spams from spam list?
+# Specific question: Can we use quantitative characteristics of emails to classify them as spam / ham?
+
+# Obtaining data from:
+# http://search.r-project.org/library/kernlab/html/spam.html
+install.packages('kernlab')
+library(kernlab)
+data(spam)
+
+# As we're doing 'predicative' analysis,
+# we should subsetting the entire data into training set and test set.
+set.seed(3435)
+trainInd<-rbinom(dim(spam)[1],size=1,prob=0.5)
+table(trainInd)
+trainSpam<-spam[trainInd==1,]
+testSpam<-spam[trainInd==0,]
+
+# Explore data to find suitable analytical method and model.
+table(trainSpam$type)         # Look at the composition - real answers.
+plot(trainSpam$capitalAve~trainSpam$type)   # Data skewwed
+plot(log10(trainSpam$capitalAve+1)~trainSpam$type)  # Looks better; Note there's potentially log10(0) so add 1 to data.
+plot(log10(trainSpam[,1:4]+1))              # Interesting plots.
+hCluster<-hclust(dist(t(trainSpam[,1:57])))
+plot(hCluster,cex=0.5)
+nhCluster<-hclust(dist(t(log10(trainSpam[,1:57]+1))))
+plot(nhCluster,cex=0.5)
+
+# Now try modeling.
+trainSpam$numType<-as.numeric(trainSpam$type)-1
+costFun<-function(x,y) sum(x!=(y>0.5))
+cvErr<-rep(NA,55)
+library(boot)
+for(i in 1:55){
+  lmFor<-reformulate(names(trainSpam)[i],response='numType')    # reformulate() creates formula of response~x.
+  glmFit<-glm(lmFor,family='binomial',data=trainSpam)           # Makes generalized linear model.
+  cvErr[i]<-cv.glm(trainSpam,glmFit,costFun,2)$delta[2]         # Cross validation.
+}
+predictV<-names(trainSpam)[which.min(cvErr)]                    # This term vector has lowest cross validation error.
+predictFor<-reformulate(predictV,response='numType')
+predictModel<-glm(predictFor,family='binomial',data=trainSpam)  # Use the term to model.
+
+# Make a test.
+predictTest<-predict(predictModel,testSpam)
+predictSpam<-rep('nonspam',dim(testSpam)[1])
+predictSpam[predictModel$fitted.values>0.5]='spam'
+
+# Check classification table.
+table(predictSpam,testSpam$type)
+# Hence we can calculate error rate and other parameters of the model.
+
+
+
+# Then we should go back looking the data processing and analysis,
+# and try to make a conclusion by visualizing and discussing the entire progress.
+
+# After the report is done, it's always good to re-check every step:
+# questions, data source, processing, analysis & conclusion.
+# Couple challenges we may also make:
+# - Measures of uncertainty;
+# - Choices of terms to include in models;
+# - Think of potential alternative analyses.
