@@ -1,0 +1,130 @@
+# Plotting with R
+# For future reference
+# https://www.coursera.org/learn/exploratory-data-analysis/lecture/yUFDH/
+
+# packages for potential use; not necessary for all codes.
+library(lattice)
+library(gplots)
+library(ggplot2)
+
+library(datasets)     # Demo dataset included in R.
+
+# xyplot() is included in lattice package. Other mentioned are bwplot(), levelplot().
+# Works for y ~ x1 | x2, where count(x2) plots of y~x1 are generated.
+state<-data.frame(state.x77)
+xyplot(state$Life.Exp~state$Income|state$Area)
+# Note: above code doesn't work good, as there's no 'region' factor
+# which contains only 4 levels; with region instead of area, there're 4 plots only.
+
+# qplot() in ggplot2 package.
+# By default shows scatters on gridlines.
+data("mpg")   # Demo in datasets package.
+qplot(displ,hwy,data=mpg)   # equals qplot(mpg$displ,mpg$hwy).
+
+# Finally, there are still many other packages useful.
+# But it's necessary to at least know the 'Base' graphical functions.
+
+#=======================================================================================#
+# Below are fundamental things of basic 'Base' graphics.
+# Couple frequently used functions: plot(x,y), hist(x). boxplot(x)...
+# there are many arguments in each of the functions.
+# ?par explains many parameters.
+
+# histogram line-labeled with mean and sd.
+hist(airquality$Ozone)
+abline(v=mean(airquality$Ozone,na.rm=TRUE),col='black',lwd=3)    # na.rm=TRUE removes NAs in data; col defines color; lwd defines line width.
+abline(v=mean(airquality$Ozone,na.rm=TRUE)-sd(airquality$Ozone,na.rm=TRUE),col='blue',lty=5)      # lty defines line type.
+abline(v=mean(airquality$Ozone,na.rm=TRUE)+sd(airquality$Ozone,na.rm=TRUE),col='blue',lty=3)
+
+# simple y~x scatter plot
+with(airquality,plot(Wind,Ozone,pch=19))     # instead of 'data=airquality', this shoud use with(airquality,...); pch defines point pattern.
+abline(lm(Wind~Ozone,data=airquality))       # Draw linear regression line; note class 'lm' is accepted as argument of abline().
+
+# boxplot
+aq<-transform(airquality,Month=factor(Month))   # Still not familiar with transform().
+boxplot(Ozone~Month,aq,title='Boxplot of Ozone Levels of Each Month',xlab='Month',ylab='Ozone (ppb)')       # xlab, ylab define labels of axes.
+
+# par() for global graphics parameters affecting all graphs.
+# Can learn the default global parameters this way:
+par('las')        # las   - the orientation of the axis labels on the plot.
+par('bg')         # bg    - the background color.
+par('mar')        # mar   - the margin size c(below, left, top, right)
+par('mfrow')      # mfrow - number of plots c(row, column), filled row-wise (left to right).
+par('mfcol')      # mfcol - same as mfrow c(row, column), but filled column-wise (top down).
+par('oma')        # oma  - the outer margin size c(below, left, top, right), default to all 0. It's not a graphical parameter.
+
+
+# Plotting functions other than the plots.
+with(airquality,plot(Wind,Ozone))      # Take an example.
+
+# title add labels at the corresponding positions.
+title(main='Ozone & Wind in NYC')      
+
+# points takes x,y coordinate in plot.
+with(subset(airquality,Month==5),points(Wind,Ozone,col='blue'))       # Note subset().  
+with(subset(airquality,Month!=5),points(Wind,Ozone,col='red'))
+
+# legend gives the legend list.
+legend('topright',pch=1,col=c('blue','red'),legend=c('May','Other Months'),cex=0.5)     # We could use factors to do all these, maybe. cex zoom in or out the plotted object.
+
+# lines - accept 2 vectors - x & y, either as matrix or 2 columns.
+abline(lm(Ozone~Wind,airquality),lwd=2)
+text(130,20,'test')           # text put text labels at x,y.
+
+par(mfrow=c(1,2))
+with(airquality,{
+  plot(Wind,Ozone,main='Ozone & Wind')
+  plot(Solar.R,Ozone,main='Ozone & Solar Radiation')
+})
+
+par(mfrow=c(1,3),mar=c(4,4,2,1),oma=c(0,0,2,0))
+with(airquality,{
+  plot(Wind,Ozone,main='Ozone & Wind')
+  plot(Solar.R,Ozone,main='Ozone & Solar Radiation')
+  plot(Temp,Ozone,main='Ozone and Temperature')
+  mtext('Ozone & Weather in NYC',outer=T)
+})
+
+
+#
+# Now play around with some random data.
+par(mfrow=c(1,1))
+x<-rnorm(100)
+hist(x)
+y<-rnorm(100)
+plot(x,y)
+title('Scatterplot')
+text(-2,-2,'Label')
+legend('topleft',legend='Data',cex=0.3)
+abline(lm(y~x),lwd=3,lty=4,col='orange')
+y<-x+rnorm(100)
+g<-gl(2,50,labels=c('Male','Female'))
+plot(x,y)
+plot(x,y,type='n')    # Not adding data yet.
+
+# Adding data with points() function.
+points(x[g=='Male'],y[g=='Male'],col='green')
+points(x[g=='Female'],y[g=='Female'],col='blue',pch=19)
+
+
+
+#=======================================================================#
+# Below is a blog of graphical devices.
+# On windows we use windows(); on Mac it's quartz(); Unix uses xll().
+
+# Plot by default on screen device.
+with(faithful,plot(eruptions,waiting))
+title(main='Old Faithful Geyser Data')
+
+# To pdf:
+pdf(file='myplot1.pdf')     # Create an empty pdf file to edit.
+with(faithful,plot(eruptions,waiting))
+title(main='Old Faithful Geyser Data')
+dev.off()                   # Save and close after saving.
+# Note there's nothing appearing; everything is done at back stage.
+
+dev.cur()     # Looks at the currently active device.
+dev.set(3)    # Sets active device (1 for screen, 2 for RStudio, 3 for png, etc.)
+dev.copy(png,file='geyserplot.png')     # Copy graphics to other device (save as file).
+dev.off()
+# dev.copy2pdf() copies graphics to pdf.
