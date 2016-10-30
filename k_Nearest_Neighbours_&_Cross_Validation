@@ -1,0 +1,208 @@
+# Quick test of conditional Expectation.
+
+n = 10000
+set.seed(1)
+men = rnorm(n,176,7) #height in centimeters
+women = rnorm(n,162,7) #height in centimeters
+y = c(rep(0,n),rep(1,n))
+x = round(c(men,women))
+##mix it up
+ind = sample(seq(along=y))
+y = y[ind]
+x = x[ind]
+mean(y[which(x==176)]==1)
+vx<-seq(160,178)
+ey<-sapply(vx,function(x0) mean(y[x==x0]))
+plot(vx,ey)
+abline(h=0.5)
+abline(v=168)
+
+# Smoothing (non-linear regression)
+# Randomly generated dataset of height and gender.
+set.seed(5)
+N = 250
+ind = sample(length(y),N)
+Y = y[ind]
+X = x[ind]
+EY<-sapply(X,function(x0) mean(Y[X==x0]))
+# This builds the non-linear regression model (smoothing).
+ft<-loess(Y~X)
+# Note class(ft)=='loess', which is like a function.
+# But we need to use predict() to predict values based on the function.
+predict(ft,data.frame(X=168))             # Here 'X=168' must be in data.frame class or list.
+# If we plot the smoothed line with the fitted 'function':
+pd<-predict(ft,data.frame(X))
+plot(X,pd)                        # pd contains predicted Y-value of each X.
+
+# Note the predicted value is also a random variable.
+# Take a Monte-Carlo simulation of prediction over X=168.
+set.seed(5)
+N<-250
+pds<-replicate(1000,{
+  ind<-sample(length(y),N)
+  Y<-y[ind]
+  X<-x[ind]
+  ft<-loess(Y~X)
+  predict(ft,data.frame(X=168))
+})
+sd(pds)
+
+
+
+
+#===========================================================================#
+# Cross Validation
+
+load('tissuesGeneExpression.rda')
+# Take a look at the features - the 'placenta' has only 6 vectors, so we remove it.
+table(tissue)
+ind<-which(tissue!='placenta')
+y<-tissue[ind]
+X<-t(e[,ind])
+
+library(caret)
+set.seed(1)
+idx<-createFolds(y,k=5)   # create 5 folds to facilitate cross validation.
+sapply(idx,function(i) table(y[i]))
+
+# now make multi-dimensional scaling, and plot the data.
+library(rafalib)
+Xs<-cmdscale(dist(X))
+plot(Xs,col=as.fumeric(y))    # as.fumeric() is stored in rafalib package.
+legend('topleft',levels(factor(y)),fill=seq_along(levels(factor(y))))
+
+# Predict classifications using k-nearest neighboring method with k=5.
+library(class)
+i<-1
+pred<-knn(train=Xs[-idx[[i]],],test=Xs[idx[[i]],],cl=y[-idx[[i]]],k=5)
+table(true=y[idx[[i]]],pred)
+mean(y[idx[[i]]]!=pred)
+
+# let's rorate the test group from i=1:5.
+res<-sapply(seq_along(idx),function(i) {
+  pred<-knn(train=Xs[-idx[[i]],],test=Xs[idx[[i]],],cl=y[-idx[[i]]],k=5)
+  mean(y[idx[[i]]]!=pred)
+})
+mean(res)
+
+# What if we use different k values?
+ks<-c(1:12)
+resk<-sapply(ks,function(k) {
+  res<-sapply(seq_along(idx),function(i){
+    pred<-knn(train=Xs[-idx[[i]],],test=Xs[idx[[i]],],cl=y[-idx[[i]]],k=k)
+    mean(y[idx[[i]]]!=pred)
+  })
+  mean(res)
+})
+plot(ks,resk)
+
+# Looks like k=5 is the optimal value.
+# There's still improvement possible. What if we use more dimensions in MDS? Say 5.
+Xs<-cmdscale(dist(X),k=5)
+# Now re-run the above code:
+ks<-c(1:12)
+resk<-sapply(ks,function(k) {
+  res<-sapply(seq_along(idx),function(i){
+    pred<-knn(train=Xs[-idx[[i]],],test=Xs[idx[[i]],],cl=y[-idx[[i]]],k=k)
+    mean(y[idx[[i]]]!=pred)
+  })
+  mean(res)
+})
+plot(ks,resk)
+# See the error rates are greatly reduced, and optimal k value is at 7.
+
+
+
+#=======================================================================================================#
+# Study case.
+library(caret)
+setwd('G:/R/Project1/')
+load('GSE5859Subset.rda')
+y<-factor(sampleInfo$group)
+X<-t(geneExpression)
+out<-which(geneAnnotation$CHR%in%c('chrX','chrY'))
+X<-X[,-out]
+
+# Separate data into groups.
+set.seed(1)
+idx<-createFolds(y)
+library(genefilter)
+m<-8      # Select 8 genes. Note here columns and rows are easily misunderstood!
+k<-5
+idxSelected<-order(rowttests(t(X[-idx[[2]],]),y[-idx[[2]]])$p.value)[1:m]   # find 8 genes with lowest p-value for TRAINING SET.
+geneSelected<-X[,idxSelected]
+library(class)
+pred<-knn(train=geneSelected[-idx[[2]],],test=geneSelected[idx[[2]],],cl=y[-idx[[2]]],k=k)
+sum(y[idx[[2]]]!=pred)
+
+# Above have we used 2nd fold as test set. Now we rotate all 10 folds.
+# This is the cross validation - rotate the test sets and evaluate the prediction model.
+# Note :
+# 1) with larger size of test set, the results are less biased but more variated, and vice versa;
+# 2) the test sets used for validation are not the 'test set' for validation - need a separated 'validation set' to test the models.
+errors<-sapply(seq_along(idx), function(i){
+  idxSelected<-order(rowttests(t(X[-idx[[i]],]),factor(y[-idx[[i]]]))$p.value)[1:m]
+  geneSelected<-X[,idxSelected]
+  pred<-knn(train=geneSelected[-idx[[i]],],test=geneSelected[idx[[i]],],cl=y[-idx[[i]]],k=k)
+  sum(y[idx[[i]]]!=pred)
+})
+
+errors<-sapply(seq_along(idx), function(i){
+  pred<-knn(train=geneSelected[-idx[[i]],],test=geneSelected[idx[[i]],],cl=y[-idx[[i]]],k=k)
+  sum(y[idx[[i]]]!=pred)
+})
+
+# And now it's time to optimize k and m.
+# m is the sampling size - m from all 8793 genes.
+# k is number of neighbors.
+ms<-2^c(1:11)
+ks<-seq(1,9,2)
+params<-expand.grid(k=ks,m=ms)
+errorRates<-sapply(seq_along(params$k), function(j) {
+  errors<-sapply(seq_along(idx), function(i){
+    idxSelected<-order(rowttests(t(X[-idx[[i]],]),factor(y[-idx[[i]]]))$p.value)[1:params$m[j]]
+    geneSelected<-X[,idxSelected]
+    pred<-knn(train=geneSelected[-idx[[i]],],test=geneSelected[idx[[i]],],cl=y[-idx[[i]]],k=params$k[j])
+    sum(y[idx[[i]]]!=pred)
+  })
+  sum(errors)/20
+})
+plot(c(1:55),errorRates,xlab='Strategy Number',ylab='Error Rates',pch=19)
+params[which.min(errorRates),]    # Take a look at the k and m values.
+
+# Note we've used ttest filter to select m genes with smallest p-values OF THE TRAINING SAMPLE SET.
+# Now let's free the training set restraint - apply ttest filter to ALL 24 sample vectors.
+ms<-2^c(1:11)
+ks<-seq(1,9,2)
+params<-expand.grid(k=ks,m=ms)
+errorRates<-sapply(seq_along(params$k), function(j) {
+  errors<-sapply(seq_along(idx), function(i){
+    idxSelected<-order(rowttests(t(X),factor(y))$p.value)[1:params$m[j]]    # Note here we don't use index for X and y.
+    geneSelected<-X[,idxSelected]
+    pred<-knn(train=geneSelected[-idx[[i]],],test=geneSelected[idx[[i]],],cl=y[-idx[[i]]],k=params$k[j])
+    sum(y[idx[[i]]]!=pred)
+  })
+  sum(errors)/24
+})
+plot(c(1:55),errorRates,xlab='Strategy Number',ylab='Error Rates',pch=19)
+params[which.min(errorRates),]    # Take a look at the k and m values.
+min(errorRates)
+
+# Lastly, we substitute y from factor of exp / control to factor of months,
+# which confounds with exp / control group.
+y = factor(as.numeric(format( sampleInfo$date, "%m")=="06"))
+ms<-2^c(1:11)
+ks<-seq(1,9,2)
+params<-expand.grid(k=ks,m=ms)
+errorRates<-sapply(seq_along(params$k), function(j) {
+  errors<-sapply(seq_along(idx), function(i){
+    idxSelected<-order(rowttests(t(X[-idx[[i]],]),factor(y[-idx[[i]]]))$p.value)[1:params$m[j]]
+    geneSelected<-X[,idxSelected]
+    pred<-knn(train=geneSelected[-idx[[i]],],test=geneSelected[idx[[i]],],cl=y[-idx[[i]]],k=params$k[j])
+    sum(y[idx[[i]]]!=pred)
+  })
+  sum(errors)/20
+})
+plot(c(1:55),errorRates,xlab='Strategy Number',ylab='Error Rates',pch=19)
+params[which.min(errorRates),]    # Take a look at the k and m values.
+# Note the error could be 0. However this model is no way precise.
