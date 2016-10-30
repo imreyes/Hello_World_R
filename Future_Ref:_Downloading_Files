@@ -1,0 +1,76 @@
+# Downloading and reading files.
+# Lecture & coding source are from below link at 5pm 10/26/2016.
+# https://www.coursera.org/learn/data-cleaning/lecture/fDm1d/reading-local-files
+
+setwd('G:/R/Project1/')
+if(!file.exists('Ex1_download_file')){dir.create('Ex1_download_file')}
+fileUrl<-'https://data.baltimorecity.gov/api/views/dz54-2aru/rows.csv?accessType=DOWNLOAD'
+download.file(fileUrl,destfile='./Ex1_download_file/cameras.csv')  
+dateDownloaded<-date()
+cameraData<-read.table('./Ex1_download_file/cameras.csv',sep=',',header=T)    # several parameters: quote, na.string,nrows,skip.
+# x<-read.csv('./data/cameras.csv')
+
+# Download as Excel file:
+# download.file(fileUrl,destfile='.Ex1_donwload_file/cameras.xlsx')
+# library(xlsx)
+# x<-read.xlsx('.Ex1_download_file/cameras.xlsx')
+# It is very common to incorporate Excel environment into R or vice versa.
+
+# Download XML files:
+library(XML)
+fileUrl<-'http://www.w3schools.com/xml/simple.xml'
+doc<-xmlTreeParse(fileUrl,useInternal=T)
+rootNode<-xmlRoot(doc)
+xmlName(rootNode)
+names(rootNode)
+rootNode[[1]]
+rootNode[[1]][[1]]
+xmlSApply(rootNode,xmlValue)
+# To learn more about XML structure and XPath, find info from:
+# http://www.stat.berkeley.edu/~statcur/Workshop2/Presentations/XML.pdf
+xpathSApply(rootNode,'//name',xmlValue)
+xpathSApply(rootNode,'//price',xmlValue)
+
+# Grab another source and try.
+fileUrl<-'http://espn.go.com/nfl/team/_/name/bal/baltimore-ravens'
+doc<-htmlTreeParse(fileUrl,useInternal=T)
+scores<-xpathSApply(doc,"//li[@class='score']",xmlValue)
+teams<-xpathSApply(doc,"//li[@class='team-name']",xmlValue)
+
+# Download JSON files.
+library(jsonlite)
+jsonData<-fromJSON('https://api.github.com/users/jtleek/repos')
+names(jsonData)
+names(jsonData$owner)
+jsonData$owner$login
+myjson<-toJSON(iris,pretty=T)
+cat(myjson)
+iris2<-fromJSON(myjson)
+head(iris2)
+
+# The data.table package.
+library(data.table)
+DF<-data.frame(x=rnorm(9),y=rep(c('a','b','c'),each=3),z=rnorm(9))
+head(DF,3)
+DT<-data.table(x=rnorm(9),y=rep(c('a','b','c'),each=3),z=rnorm(9))
+head(DT,3)
+tables()
+DT[2,]
+DT[DT$y=='a']
+DT[c(2,3)]
+DT[,c(2,3)]
+DT[,list(mean(x),sum(z))]
+DT[,table(y)]
+DT[,w:=z^2]
+DT[,m:={tmp<-(x+z);log2(tmp+5)}]
+DT[,a:=x>0]
+DT[,b:=mean(x+w),by=a]
+DT<-data.table(x=sample(letters[1:3],1e5,TRUE))
+DT[,.N,by=x]  # .N counts number of appearance of each group by x.
+DT<-data.table(x=rep(letters[1:3],each=100),y=rnorm(300))
+setkey(DT,x)
+DT['a']
+
+
+
+#=========================================================================================#
