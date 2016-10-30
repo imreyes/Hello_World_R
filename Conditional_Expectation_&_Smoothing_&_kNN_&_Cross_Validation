@@ -1,5 +1,9 @@
-# Quick test of conditional Expectation.
+# Conditional Expectation & Smoothing, kNN & Cross Validation.
+# Sources of data, codes and instructions were accessed from the webpage on 10/30/2016:
+# https://courses.edx.org/courses/course-v1:HarvardX+PH525.4x+2T2016/courseware/
 
+# Quick test of conditional Expectation.
+# Imitating a 'real world' case of men / women heights.
 n = 10000
 set.seed(1)
 men = rnorm(n,176,7) #height in centimeters
